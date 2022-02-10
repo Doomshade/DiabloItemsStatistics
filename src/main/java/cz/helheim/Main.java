@@ -6,11 +6,7 @@ import org.apache.logging.log4j.Logger;
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartUtils;
 import org.jfree.chart.JFreeChart;
-import org.jfree.chart.plot.PlotOrientation;
-import org.jfree.chart.renderer.category.LineAndShapeRenderer;
-import org.jfree.data.time.Second;
-import org.jfree.data.time.TimeSeries;
-import org.jfree.data.time.TimeSeriesCollection;
+import org.jfree.data.statistics.Regression;
 import org.jfree.data.xy.XYSeries;
 import org.jfree.data.xy.XYSeriesCollection;
 import org.yaml.snakeyaml.DumperOptions;
@@ -31,27 +27,37 @@ public class Main {
 	public static final String MAX = "max";
 	private static final Logger L = LogManager.getLogger(Main.class);
 	private static final String CONFIG_FILE = "config.yml";
+	private static final String BLACKLIST = "blacklist.yml";
 	private static final String FILES_PATH = "files";
+
+	private static final int THRESHOLD = 5;
 
 	public static void main(String[] args) throws IOException {
 		// get the default yaml parser
 		final Yaml yaml = getYaml();
 
 		// get the config and read it
-		final File f = getConfig();
-		if (!f.exists()) {
-			if (!f.createNewFile()) {
+		final File config = getConfig();
+		if (!config.exists()) {
+			if (!config.createNewFile()) {
 				throw new IOException("Could not create a new file");
 			}
 		}
-		Map<String, Double> weights = readConfig(yaml, f);
+		Map<String, Double> weights = readFile(yaml, config);
 
 		if (weights == null) {
 			weights = new LinkedHashMap<>();
 		}
 
+		final File filter = getFilter();
+		if (!filter.exists()) {
+			filter.createNewFile();
+		}
+		Map<String, Object> blacklist = readFile(yaml, filter);
+
 		// read and parse the items
-		final Collection<Item> items = parseItems(readFiles(yaml, FILES_PATH, new LinkedHashMap<>()));
+		final Collection<Item> items = parseItems(readFiles(yaml, FILES_PATH, new LinkedHashMap<>()),
+				(Collection<String>) blacklist.getOrDefault("blacklist", new ArrayList<>()));
 
 		final List<Item> avgRanks = new ArrayList<>();
 
@@ -81,13 +87,13 @@ public class Main {
 				avgRanks.add(item);
 			}
 		}
-		addToConfig(yaml, f, weights);
+		addToConfig(yaml, config, weights);
 		final List<Item> minRanks = new ArrayList<>(avgRanks);
 		final List<Item> maxRanks = new ArrayList<>(avgRanks);
 
-		minRanks.sort(Comparator.comparingDouble(Item::getMinRank));
-		avgRanks.sort(Comparator.comparingDouble(Item::getAvgRank));
-		maxRanks.sort(Comparator.comparingDouble(Item::getMaxRank));
+		minRanks.sort(Comparator.comparingInt(Item::getLvl));
+		avgRanks.sort(Comparator.comparingInt(Item::getLvl));
+		maxRanks.sort(Comparator.comparingInt(Item::getLvl));
 
 		Map<String, Map<String, Item>> itemRanked = new LinkedHashMap<>();
 		for (Item i : minRanks) {
@@ -106,8 +112,12 @@ public class Main {
 			map.put(i.getItemId(), i);
 			itemRanked.putIfAbsent(MAX, map);
 		}
-		dumpItems(yaml, "test-" + System.currentTimeMillis() + ".yml", itemRanked);
-		createChart("chart.jpeg", itemRanked);
+		dumpItems(yaml, "test-" + System.currentTimeMillis() + ".yml", itemRanked.get(AVG));
+		createChart("avg-only.jpeg", itemRanked);
+	}
+
+	private static File getFilter() {
+		return new File(getCwd(), BLACKLIST);
 	}
 
 	private static void createChart(final String fileName, final Map<String, Map<String, Item>> itemRanked)
@@ -115,8 +125,11 @@ public class Main {
 		XYSeriesCollection ds = new XYSeriesCollection();
 
 		for (Map.Entry<String, Map<String, Item>> eentry : itemRanked.entrySet()) {
+			final XYSeries changePerLevelSeries = new XYSeries(eentry.getKey() + "%");
 			final XYSeries series = new XYSeries(eentry.getKey());
-			int id = 1;
+			Map<Integer, Number> vals = new HashMap<>();
+			Map<Integer, Integer> itemsPerLvl = new HashMap<>();
+
 			for (Map.Entry<String, Item> entry : eentry.getValue().entrySet()) {
 				Item item = entry.getValue();
 				Number value = 0d;
@@ -131,12 +144,38 @@ public class Main {
 						value = item.getMaxRank();
 						break;
 				}
-				series.add(id++, value);
 //				ds.addSeries(series);
 //				ds.addValue(value, eentry.getKey(), id++);
+				vals.put(item.getLvl(), vals.getOrDefault(item.getLvl(), 0d).doubleValue() + value.doubleValue());
+				itemsPerLvl.put(item.getLvl(), itemsPerLvl.getOrDefault(item.getLvl(), 0) + 1);
+			}
+			Map.Entry<Integer, Number> prev = null;
+			for (Map.Entry<Integer, Number> entry : vals.entrySet()) {
+				final int amount = itemsPerLvl.getOrDefault(entry.getKey(), Integer.MAX_VALUE);
+				if (amount >= THRESHOLD) {
+					final Number curVal = (entry.getValue().doubleValue() /
+							amount);
+					series.add(entry.getKey(), curVal);
+					if (prev != null) {
+						final double prevVal = prev.getValue().doubleValue() /
+								itemsPerLvl.getOrDefault(prev.getKey(), Integer.MAX_VALUE);
+						double v = (100 * (curVal.doubleValue() / prevVal)) - 100;
+						changePerLevelSeries.add(entry.getKey(), (Number) v);
+					}
+					prev = entry;
+				}
+
 			}
 			ds.addSeries(series);
+			ds.addSeries(changePerLevelSeries);
 		}
+		XYSeries avgRegression = new XYSeries("avg%-reg");
+		final double[] vals = Regression.getOLSRegression(ds, 3);
+		for (int i = 0; i < 35; i++) {
+			avgRegression.add(i, vals[0] + vals[1] * i);
+		}
+		ds.addSeries(avgRegression);
+
 
 		final JFreeChart lineChartObject = ChartFactory.createXYLineChart("foo", "bar", "foobar", ds);
 		File file = new File(getCwd(), fileName);
@@ -164,10 +203,20 @@ public class Main {
 		).getParentFile().getParent();
 	}
 
-	private static Collection<Item> parseItems(Map<String, ?> map) {
+	private static Collection<Item> parseItems(Map<String, ?> map,
+	                                           final Collection<String> blacklist) {
 		final Collection<Item> items = new ArrayList<>();
 
+		loop:
 		for (Map.Entry<String, ?> entry : map.entrySet()) {
+			final String itemId = entry.getKey();
+			for (String s : blacklist) {
+				if (itemId.toLowerCase().contains(s.toLowerCase())) {
+					L.info("Filtered " + itemId);
+					continue loop;
+				}
+			}
+
 			Collection<Attribute> attributes = new ArrayList<>();
 			if (!(entry.getValue() instanceof Map)) {
 				continue;
@@ -177,6 +226,7 @@ public class Main {
 				continue;
 			}
 			List<String> lore = (List<String>) values.get("lore");
+			int lvl = 0;
 			for (String s : lore) {
 				if (s == null || s.isEmpty()) {
 					continue;
@@ -205,10 +255,13 @@ public class Main {
 				} else {
 					continue;
 				}
+				if (attribute.equalsIgnoreCase("Potřebný Lvl")) {
+					lvl = min;
+				}
 				attributes.add(new Attribute(attribute, min, max));
 			}
 
-			items.add(new Item(entry.getKey(), attributes));
+			items.add(new Item(itemId, attributes, lvl));
 		}
 
 		return items;
@@ -233,7 +286,7 @@ public class Main {
 		return map;
 	}
 
-	private static Map<String, Double> readConfig(final Yaml yaml, final File f) throws FileNotFoundException {
+	private static <T> T readFile(final Yaml yaml, final File f) throws FileNotFoundException {
 		return yaml.load(new FileInputStream(f));
 	}
 

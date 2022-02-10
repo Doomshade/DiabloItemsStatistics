@@ -13,10 +13,20 @@ public class Item {
 	private Collection<Attribute> attributes = new ArrayList<>();
 	private transient String itemId = "";
 	private double avgRank = 0d, minRank = 0d, maxRank = 0d;
+	private int lvl;
 
-	public Item(final String itemId, final Collection<Attribute> attributes) {
+	public Item(final String itemId, final Collection<Attribute> attributes, int lvl) {
 		this.itemId = itemId;
 		this.attributes.addAll(attributes);
+		this.lvl = lvl;
+	}
+
+	public int getLvl() {
+		return lvl;
+	}
+
+	public void setLvl(final int lvl) {
+		this.lvl = lvl;
 	}
 
 	public String getItemId() {
@@ -56,9 +66,12 @@ public class Item {
 	@Override
 	public String toString() {
 		final StringBuilder sb = new StringBuilder("Item{");
-		sb.append("itemId='").append(itemId).append('\'');
-		sb.append(", attributes=").append(attributes);
-		sb.append(", rank=").append(avgRank);
+		sb.append("attributes=").append(attributes);
+		sb.append(", itemId='").append(itemId).append('\'');
+		sb.append(", avgRank=").append(avgRank);
+		sb.append(", minRank=").append(minRank);
+		sb.append(", maxRank=").append(maxRank);
+		sb.append(", lvl=").append(lvl);
 		sb.append('}');
 		return sb.toString();
 	}

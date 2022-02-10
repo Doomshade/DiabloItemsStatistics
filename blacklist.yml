@@ -1,0 +1,9 @@
+blacklist:
+  - "off"
+  - "Křídla"
+  - "bow"
+  - "ring"
+  - "neck"
+  - "frag"
+  - "exp"
+  - "hul"
