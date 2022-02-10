@@ -4,4 +4,6 @@
 /logs/
 /out/
 /files/
+/items/
+/mobs/
 test-*

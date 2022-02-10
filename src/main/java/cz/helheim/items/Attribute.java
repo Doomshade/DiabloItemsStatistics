@@ -1,4 +1,4 @@
-package cz.helheim;
+package cz.helheim.items;
 
 import java.util.regex.Pattern;
 
