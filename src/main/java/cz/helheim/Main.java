@@ -3,6 +3,16 @@ package cz.helheim;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.jfree.chart.ChartFactory;
+import org.jfree.chart.ChartUtils;
+import org.jfree.chart.JFreeChart;
+import org.jfree.chart.plot.PlotOrientation;
+import org.jfree.chart.renderer.category.LineAndShapeRenderer;
+import org.jfree.data.time.Second;
+import org.jfree.data.time.TimeSeries;
+import org.jfree.data.time.TimeSeriesCollection;
+import org.jfree.data.xy.XYSeries;
+import org.jfree.data.xy.XYSeriesCollection;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 
@@ -16,6 +26,9 @@ import java.util.regex.Matcher;
  * @since 1.0
  */
 public class Main {
+	public static final String MIN = "min";
+	public static final String AVG = "avg";
+	public static final String MAX = "max";
 	private static final Logger L = LogManager.getLogger(Main.class);
 	private static final String CONFIG_FILE = "config.yml";
 	private static final String FILES_PATH = "files";
@@ -40,7 +53,7 @@ public class Main {
 		// read and parse the items
 		final Collection<Item> items = parseItems(readFiles(yaml, FILES_PATH, new LinkedHashMap<>()));
 
-		final List<Item> itemsRanked = new ArrayList<>();
+		final List<Item> avgRanks = new ArrayList<>();
 
 		for (Item item : items) {
 			double minRank = 0;
@@ -56,7 +69,7 @@ public class Main {
 					final double w = weights.get(attrStr);
 					minRank += w * attr.getMin();
 					avgRank += w * ((attr.getMax() + attr.getMin()) / 2d);
-					maxRank += w * attr.getMin();
+					maxRank += w * attr.getMax();
 				} catch (Exception e) {
 					L.error(String.format("Invalid line '%s'", weights.get(attrStr)));
 				}
@@ -65,17 +78,69 @@ public class Main {
 				item.setMinRank(minRank);
 				item.setAvgRank(avgRank);
 				item.setMaxRank(maxRank);
-				itemsRanked.add(item);
+				avgRanks.add(item);
 			}
 		}
-		itemsRanked.sort(Item::compareTo);
-
-		Map<String, Item> itemRanked = new LinkedHashMap<>();
-		for (Item i : itemsRanked) {
-			itemRanked.put(i.getItemId(), i);
-		}
 		addToConfig(yaml, f, weights);
+		final List<Item> minRanks = new ArrayList<>(avgRanks);
+		final List<Item> maxRanks = new ArrayList<>(avgRanks);
+
+		minRanks.sort(Comparator.comparingDouble(Item::getMinRank));
+		avgRanks.sort(Comparator.comparingDouble(Item::getAvgRank));
+		maxRanks.sort(Comparator.comparingDouble(Item::getMaxRank));
+
+		Map<String, Map<String, Item>> itemRanked = new LinkedHashMap<>();
+		for (Item i : minRanks) {
+			Map<String, Item> map = itemRanked.getOrDefault(MIN, new LinkedHashMap<>());
+			map.put(i.getItemId(), i);
+			itemRanked.putIfAbsent(MIN, map);
+		}
+		for (Item i : avgRanks) {
+			Map<String, Item> map = itemRanked.getOrDefault(AVG, new LinkedHashMap<>());
+			map.put(i.getItemId(), i);
+			itemRanked.putIfAbsent(AVG, map);
+		}
+		//dumpItems(yaml, "test-" + System.currentTimeMillis() + ".yml", itemRanked);
+		for (Item i : maxRanks) {
+			Map<String, Item> map = itemRanked.getOrDefault(MAX, new LinkedHashMap<>());
+			map.put(i.getItemId(), i);
+			itemRanked.putIfAbsent(MAX, map);
+		}
 		dumpItems(yaml, "test-" + System.currentTimeMillis() + ".yml", itemRanked);
+		createChart("chart.jpeg", itemRanked);
+	}
+
+	private static void createChart(final String fileName, final Map<String, Map<String, Item>> itemRanked)
+			throws IOException {
+		XYSeriesCollection ds = new XYSeriesCollection();
+
+		for (Map.Entry<String, Map<String, Item>> eentry : itemRanked.entrySet()) {
+			final XYSeries series = new XYSeries(eentry.getKey());
+			int id = 1;
+			for (Map.Entry<String, Item> entry : eentry.getValue().entrySet()) {
+				Item item = entry.getValue();
+				Number value = 0d;
+				switch (eentry.getKey()) {
+					case MIN:
+						value = item.getMinRank();
+						break;
+					case AVG:
+						value = item.getAvgRank();
+						break;
+					case MAX:
+						value = item.getMaxRank();
+						break;
+				}
+				series.add(id++, value);
+//				ds.addSeries(series);
+//				ds.addValue(value, eentry.getKey(), id++);
+			}
+			ds.addSeries(series);
+		}
+
+		final JFreeChart lineChartObject = ChartFactory.createXYLineChart("foo", "bar", "foobar", ds);
+		File file = new File(getCwd(), fileName);
+		ChartUtils.saveChartAsJPEG(file, lineChartObject, 1920, 1080);
 	}
 
 	private static void dumpItems(final Yaml yaml, final String file, final Object itemsRanked)
@@ -86,13 +151,17 @@ public class Main {
 	}
 
 	private static File getConfig() {
-		return new File(new File(
+		return new File(getCwd(), CONFIG_FILE);
+	}
+
+	private static String getCwd() {
+		return new File(
 				Main.class
 						.getProtectionDomain()
 						.getCodeSource()
 						.getLocation()
 						.getPath()
-		).getParentFile().getParent(), CONFIG_FILE);
+		).getParentFile().getParent();
 	}
 
 	private static Collection<Item> parseItems(Map<String, ?> map) {

@@ -9,7 +9,7 @@ import java.util.Objects;
  * @version 1.0
  * @since 1.0
  */
-public class Item implements Comparable<Item> {
+public class Item {
 	private Collection<Attribute> attributes = new ArrayList<>();
 	private transient String itemId = "";
 	private double avgRank = 0d, minRank = 0d, maxRank = 0d;
@@ -77,11 +77,6 @@ public class Item implements Comparable<Item> {
 
 	public void setMaxRank(final double maxRank) {
 		this.maxRank = maxRank;
-	}
-
-	@Override
-	public int compareTo(final Item o) {
-		return Double.compare(getAvgRank(), o.getAvgRank());
 	}
 
 	public double getAvgRank() {
