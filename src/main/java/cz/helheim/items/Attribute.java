@@ -3,16 +3,30 @@ package cz.helheim.items;
 import java.util.regex.Pattern;
 
 /**
+ * Represents either a class attribute (Vitalita, Víra) or an item attribute (Poškození, Vyhýbání)
+ *
  * @author Jakub Šmrha
  * @version 1.0
  * @since 1.0
  */
 public class Attribute {
+	/**
+	 * The item attribute pattern, looks for "{attribute}: {min}-{max}"
+	 */
 	public static transient final Pattern ATTRIBUTE_PATTERN = Pattern.compile("&.\\+(\\d+)%?(-(\\d+))?%? (.*)");
+
+	/**
+	 * The class attribute pattern, looks for "+{min}-{max} {attribute}"
+	 */
 	public static transient final Pattern CLASS_PATTERN = Pattern.compile("&.(.*): (\\d+)%?(-(\\d+))?%?");
 	private String attribute;
 	private int min, max;
 
+	/**
+	 * @param attribute the attribute key
+	 * @param min the min value
+	 * @param max the max value
+	 */
 	public Attribute(String attribute, int min, int max) {
 		this.attribute = attribute;
 		this.min = min;
@@ -23,25 +37,24 @@ public class Attribute {
 		return min;
 	}
 
+	public void setMin(final int min) {
+		this.min = min;
+	}
+
 	public int getMax() {
 		return max;
-	}
-
-	public String getAttribute() {
-		return attribute;
-	}
-
-
-	public void setAttribute(final String attribute) {
-		this.attribute = attribute;
 	}
 
 	public void setMax(final int max) {
 		this.max = max;
 	}
 
-	public void setMin(final int min) {
-		this.min = min;
+	public String getAttribute() {
+		return attribute;
+	}
+
+	public void setAttribute(final String attribute) {
+		this.attribute = attribute;
 	}
 
 	@Override

@@ -2,9 +2,15 @@ package cz.helheim;
 
 import cz.helheim.items.ItemStatistics;
 import cz.helheim.mobs.MobStatistics;
+import org.jfree.chart.JFreeChart;
+import org.jfree.chart.labels.StandardXYItemLabelGenerator;
+import org.jfree.chart.renderer.xy.XYLineAndShapeRenderer;
+import org.jfree.svg.SVGGraphics2D;
+import org.jfree.svg.SVGUtils;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 
+import java.awt.*;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -91,5 +97,18 @@ public class Main {
 
 	public static Yaml getYaml() {
 		return yaml;
+	}
+
+	public static void dumpChart(String fileName, JFreeChart chart) throws IOException {
+		XYLineAndShapeRenderer renderer = (XYLineAndShapeRenderer) chart.getXYPlot().getRenderer();
+		renderer.setDefaultItemLabelsVisible(true);
+		renderer.setDefaultItemLabelGenerator(new StandardXYItemLabelGenerator("{2}"));
+
+		File file = new File(getOutDir(), fileName);
+
+		SVGGraphics2D g2 = new SVGGraphics2D(WIDTH, HEIGHT);
+		Rectangle r = new Rectangle(0, 0, WIDTH, HEIGHT);
+		chart.draw(g2, r);
+		SVGUtils.writeToSVG(file, g2.getSVGElement());
 	}
 }

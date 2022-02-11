@@ -5,14 +5,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.JFreeChart;
-import org.jfree.chart.labels.StandardXYItemLabelGenerator;
-import org.jfree.chart.renderer.xy.XYLineAndShapeRenderer;
 import org.jfree.data.xy.XYSeries;
 import org.jfree.data.xy.XYSeriesCollection;
-import org.jfree.svg.SVGGraphics2D;
-import org.jfree.svg.SVGUtils;
 
-import java.awt.*;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileWriter;
@@ -221,16 +216,7 @@ public class MobStatistics {
 		ds.addSeries(series);
 		final JFreeChart chart = ChartFactory.createXYLineChart("Mob stats / level chart", "Mob level",
 				"Mob stats", ds);
-		XYLineAndShapeRenderer renderer = (XYLineAndShapeRenderer) chart.getXYPlot().getRenderer();
-		renderer.setDefaultItemLabelsVisible(true);
-		renderer.setDefaultItemLabelGenerator(new StandardXYItemLabelGenerator("{2}"));
-
-		File file = new File(Main.getOutDir(), fileName);
-
-		SVGGraphics2D g2 = new SVGGraphics2D(Main.WIDTH, Main.HEIGHT);
-		Rectangle r = new Rectangle(0, 0, Main.WIDTH, Main.HEIGHT);
-		chart.draw(g2, r);
-		SVGUtils.writeToSVG(file, g2.getSVGElement());
+		Main.dumpChart(fileName, chart);
 
 	}
 

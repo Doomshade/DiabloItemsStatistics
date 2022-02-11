@@ -5,6 +5,8 @@ import java.util.Collection;
 import java.util.Objects;
 
 /**
+ * Represents an item, i.e. a collection of attributes, an item ID, and level requirement
+ *
  * @author Jakub Šmrha
  * @version 1.0
  * @since 1.0
@@ -15,6 +17,11 @@ public class Item {
 	private double avgRank = 0d, minRank = 0d, maxRank = 0d;
 	private int lvl;
 
+	/**
+	 * @param itemId the item ID
+	 * @param attributes the item attributes
+	 * @param lvl the item level req
+	 */
 	public Item(final String itemId, final Collection<Attribute> attributes, int lvl) {
 		this.itemId = itemId;
 		this.attributes.addAll(attributes);
