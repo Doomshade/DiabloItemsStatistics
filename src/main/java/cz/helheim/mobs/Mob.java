@@ -6,23 +6,35 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
+ * A mob, i.e an ID, a name, health, damage, level, and equipment
+ *
  * @author Jakub Šmrha
  * @version 1.0
  * @since 1.0
  */
 public class Mob implements Comparable<Mob> {
 	// &8[&4Lv. 25&8]&c Efrít
-	public static final Pattern NAME_PATTERN = Pattern.compile(".*\\[.*&.Lv. (\\d+)&.]&. .*");
+	/**
+	 * the pattern looks for {colour}[{colour}Lv. {level}{colour}]{colour} {name}
+	 */
+	public static final Pattern NAME_PATTERN = Pattern.compile("..\\[&.Lv\\. (\\d+)&.][ ]*&.[ ]*(.*)");
 	private String mobId;
 	private String mobName;
 	private int health;
 	private int damage;
 	private int lvl;
 	private double weight;
-	private Collection<Equipment> equipment = new ArrayList<>();
+	private Collection<MobItem> mobItems = new ArrayList<>();
 
+	/**
+	 * @param mobId    the mob ID
+	 * @param mobName  the mob name
+	 * @param health   the mob health
+	 * @param damage   the mob damage
+	 * @param mobItems the mob equipment
+	 */
 	public Mob(final String mobId, final String mobName, final int health, final int damage,
-	           final Collection<Equipment> equipment) {
+	           final Collection<MobItem> mobItems) {
 		this.weight = 0;
 		this.mobId = mobId;
 		this.mobName = mobName;
@@ -34,7 +46,7 @@ public class Mob implements Comparable<Mob> {
 		} else {
 			this.lvl = Integer.parseInt(m.group(1));
 		}
-		this.equipment.addAll(equipment);
+		this.mobItems.addAll(mobItems);
 	}
 
 	public int getLvl() {
@@ -52,7 +64,7 @@ public class Mob implements Comparable<Mob> {
 		sb.append(", mobName='").append(mobName).append('\'');
 		sb.append(", health=").append(health);
 		sb.append(", damage=").append(damage);
-		sb.append(", equipment=").append(equipment);
+		sb.append(", equipment=").append(mobItems);
 		sb.append('}');
 		return sb.toString();
 	}
@@ -89,12 +101,12 @@ public class Mob implements Comparable<Mob> {
 		this.damage = damage;
 	}
 
-	public Collection<Equipment> getEquipment() {
-		return equipment;
+	public Collection<MobItem> getEquipment() {
+		return mobItems;
 	}
 
-	public void setEquipment(final Collection<Equipment> equipment) {
-		this.equipment = equipment;
+	public void setEquipment(final Collection<MobItem> mobItems) {
+		this.mobItems = mobItems;
 	}
 
 	@Override
@@ -102,9 +114,14 @@ public class Mob implements Comparable<Mob> {
 		return Integer.compare(lvl, o.lvl);
 	}
 
+	/**
+	 * Calculates the weight and returns it. This is a getter because of serialization!
+	 *
+	 * @return the weight
+	 */
 	public double getWeight() {
 		this.weight = 0;
-		for (Equipment eq : equipment) {
+		for (MobItem eq : mobItems) {
 			weight += eq.getWeight();
 			for (Enchantment ench : eq.getEnchantments()) {
 				weight += ench.getWeight() * ench.getLevel();

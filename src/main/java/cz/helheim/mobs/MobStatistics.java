@@ -13,11 +13,12 @@ import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 import java.util.*;
 import java.util.regex.Matcher;
 
 /**
+ * The "main" of mob statistics
+ *
  * @author Jakub Šmrha
  * @version 1.0
  * @since 1.0
@@ -29,6 +30,11 @@ public class MobStatistics {
 	private static final String CONFIG_FILE = "mob-config.yml";
 	private static final Logger L = LogManager.getLogger(MobStatistics.class);
 
+	/**
+	 * The "main"
+	 *
+	 * @throws IOException if an IO based operation failed
+	 */
 	public static void parseMobs() throws IOException {
 		// get weights from config
 		final Map<String, Double> weights = Main.readFile(getConfig(), new LinkedHashMap<>());
@@ -40,7 +46,7 @@ public class MobStatistics {
 		// dump it to a map
 		final Map<String, Mob> dumpMap = new LinkedHashMap<>();
 		for (Mob m : mobs) {
-			for (final Equipment eq : m.getEquipment()) {
+			for (final MobItem eq : m.getEquipment()) {
 				// if the weight does not exist, add it to the map with weight of 1
 				// the new weight will later be written to the config file
 				weights.putIfAbsent(String.valueOf(eq.getItemId()), 1d);
@@ -82,9 +88,9 @@ public class MobStatistics {
 	 * @return a map of key=equipmentId, value=equipment
 	 * @throws FileNotFoundException if a file could not be read
 	 */
-	private static Map<String, Equipment> parseItemFiles(
+	private static Map<String, MobItem> parseItemFiles(
 			final Map<String, Double> weights) throws FileNotFoundException {
-		final Map<String, Equipment> equipment = new HashMap<>();
+		final Map<String, MobItem> equipment = new HashMap<>();
 
 		// get all files in the directory
 		File[] itemFiles = getItemsFolder().listFiles(x -> x.getName().endsWith(".yml"));
@@ -113,14 +119,12 @@ public class MobStatistics {
 							L.debug("Could not find an enchantment pattern in " + s);
 							continue;
 						}
-						// TODO add weighting
 						enchs.add(new Enchantment(m.group(1), Integer.parseInt(m.group(2)),
 								weights.getOrDefault(m.group(1), 0d)));
 					}
 				}
 
-				// TODO add weighting
-				equipment.put(entry.getKey(), new Equipment(entry.getKey(), (int) id,
+				equipment.put(entry.getKey(), new MobItem(entry.getKey(), (int) id,
 						weights.getOrDefault(String.valueOf(id), 0d),
 						enchs));
 			}
@@ -133,7 +137,14 @@ public class MobStatistics {
 		return Main.getDirectory(getMobsFolder(), ITEMS_PATH);
 	}
 
-	private static List<Mob> parseMobFiles(Map<String, Equipment> equipment) throws FileNotFoundException {
+	/**
+	 * Parses the mobs and assigns them equipment
+	 *
+	 * @param equipment the equipment
+	 * @return the list of mobs
+	 * @throws FileNotFoundException if
+	 */
+	private static List<Mob> parseMobFiles(Map<String, MobItem> equipment) throws FileNotFoundException {
 		List<Mob> mobs = new ArrayList<>();
 		File[] mobFiles = getActualMobsFolder().listFiles(x -> x.getName().endsWith(".yml"));
 		if (mobFiles == null) {
@@ -143,10 +154,15 @@ public class MobStatistics {
 			Map<String, ?> map = Main.readFile(mobFile);
 			for (Map.Entry<String, ?> entry : map.entrySet()) {
 				final Map<String, ?> subMap = (Map<String, ?>) entry.getValue();
-				final Collection<Equipment> eq = new ArrayList<>();
-				if (subMap.containsKey("Equipment") && subMap.get("Equipment") instanceof Collection) {
+				if (!subMap.containsKey("Health") || !subMap.containsKey("Damage")) {
+					continue;
+				}
+
+				// check if the mob even has equipment
+				final Collection<MobItem> eq = new ArrayList<>();
+				if (subMap.get("Equipment") instanceof Collection) {
 					for (String s : (Collection<String>) subMap.get("Equipment")) {
-						final Matcher m = Equipment.EQUIPMENT_PATTERN.matcher(s);
+						final Matcher m = MobItem.EQUIPMENT_PATTERN.matcher(s);
 						if (!m.find()) {
 							L.debug(String.format("Could not find an item for %s (invalid pattern for mob id %s)", s,
 									entry.getKey()));
@@ -158,16 +174,14 @@ public class MobStatistics {
 							L.debug(String.format("Could not find an item for equipment ID %s for mob %s", eqId, entry.getKey()));
 							continue;
 						}
+
+						// the equipment is valid and exists, add it
 						eq.add(equipment.get(eqId));
 					}
 				}
 
-				if (!subMap.containsKey("Health") || !subMap.containsKey("Damage")) {
-					continue;
-				}
 				final int health = (int) subMap.get("Health");
 				final int damage = (int) subMap.get("Damage");
-
 				final String display;
 				if (subMap.containsKey("Display")) {
 					display = (String) subMap.get("Display");
@@ -189,25 +203,37 @@ public class MobStatistics {
 		return Main.getDirectory(Main.getCwd(), MOBS_PATH);
 	}
 
+	/**
+	 * Creates a line chart
+	 *
+	 * @param fileName   the file name
+	 * @param rankedMobs the data
+	 * @throws IOException if the chart could not be created
+	 */
 	private static void createChart(final String fileName, final Map<String, Mob> rankedMobs) throws IOException {
 		if (rankedMobs.isEmpty()) {
 			L.info("No mobs loaded, cannot create mob charts");
 			return;
 		}
-		XYSeriesCollection ds = new XYSeriesCollection();
-		Map<Integer, Number> vals = new HashMap<>();
-		Map<Integer, Integer> mobsPerLvl = new HashMap<>();
+
+		final XYSeriesCollection ds = new XYSeriesCollection();
+		final Map<Integer, Number> vals = new HashMap<>();
+		final Map<Integer, Integer> mobsPerLvl = new HashMap<>();
 		final XYSeries series = new XYSeries("mobs");
 
-		for (Map.Entry<String, Mob> e : rankedMobs.entrySet()) {
-			Mob mob = e.getValue();
+		// loop through the mobs, add their values and the amount of mobs
+		for (final Map.Entry<String, Mob> e : rankedMobs.entrySet()) {
+			final Mob mob = e.getValue();
 			if (mob.getLvl() <= 0 || mob.getLvl() > 60) {
 				continue;
 			}
 			vals.put(mob.getLvl(), vals.getOrDefault(mob.getLvl(), 0d).doubleValue() + mob.getWeight());
 			mobsPerLvl.put(mob.getLvl(), mobsPerLvl.getOrDefault(mob.getLvl(), 0) + 1);
 		}
-		for (Map.Entry<Integer, Number> entry : vals.entrySet()) {
+
+		// loop through the values, and divide each value by the amount,
+		// making a mean, and add the value to a series
+		for (final Map.Entry<Integer, Number> entry : vals.entrySet()) {
 			final int amount = mobsPerLvl.getOrDefault(entry.getKey(), Integer.MAX_VALUE);
 			final Number curVal = (entry.getValue().doubleValue() / amount);
 			series.add(entry.getKey(), curVal);

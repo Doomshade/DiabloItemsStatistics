@@ -6,19 +6,30 @@ import java.util.Objects;
 import java.util.regex.Pattern;
 
 /**
+ * A collection of enchantments, an ID and weight
+ *
  * @author Jakub Šmrha
  * @version 1.0
  * @since 1.0
  */
-public class Equipment {
-	public static final Pattern EQUIPMENT_PATTERN = Pattern.compile("([\\w]+):\\d+");
+public class MobItem {
+	/**
+	 * the pattern that looks for equipment:slot
+	 */
+	public static final Pattern EQUIPMENT_PATTERN = Pattern.compile("(.+):\\d+");
 	private String id;
 	private int itemId;
 	private double weight;
 	private Collection<Enchantment> enchantments = new ArrayList<>();
 
-	public Equipment(final String id, final int itemId, final double weight,
-	                 final Collection<Enchantment> enchantments) {
+	/**
+	 * @param id           the config ID
+	 * @param itemId       the in-game item ID
+	 * @param weight       the weight
+	 * @param enchantments the enchantments
+	 */
+	public MobItem(final String id, final int itemId, final double weight,
+	               final Collection<Enchantment> enchantments) {
 		this.id = id;
 		this.itemId = itemId;
 		this.weight = weight;
@@ -70,9 +81,9 @@ public class Equipment {
 		if (o == null || getClass() != o.getClass()) {
 			return false;
 		}
-		final Equipment equipment = (Equipment) o;
-		return itemId == equipment.itemId && Double.compare(equipment.weight, weight) == 0 &&
-				id.equals(equipment.id) && enchantments.equals(equipment.enchantments);
+		final MobItem mobItem = (MobItem) o;
+		return itemId == mobItem.itemId && Double.compare(mobItem.weight, weight) == 0 &&
+				id.equals(mobItem.id) && enchantments.equals(mobItem.enchantments);
 	}
 
 	@Override

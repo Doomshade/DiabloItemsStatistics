@@ -4,16 +4,26 @@ import java.util.Objects;
 import java.util.regex.Pattern;
 
 /**
+ * An enchantment on an item
+ *
  * @author Jakub Šmrha
  * @version 1.0
  * @since 1.0
  */
 public class Enchantment {
+	/**
+	 * this pattern looks for a key:value pair, value being a number
+	 */
 	public static final Pattern ENCHANTMENT_PATTERN = Pattern.compile("(.*):(\\d+)");
 	private String enchantmentId;
 	private int level;
 	private double weight;
 
+	/**
+	 * @param enchantmentId the enchantment ID
+	 * @param level the enchantment level
+	 * @param weight the enchantment weight
+	 */
 	public Enchantment(final String enchantmentId, final int level, final double weight) {
 		this.enchantmentId = enchantmentId;
 		this.level = level;
