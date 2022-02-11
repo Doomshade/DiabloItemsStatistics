@@ -18,16 +18,19 @@ import java.io.IOException;
 import java.util.Map;
 
 /**
+ * The entry point
+ *
  * @author Jakub Šmrha
  * @version 1.0
  * @since 1.0
  */
 public class Main {
-	public static final String OUT_PATH = "out";
-	public static final int WIDTH = 1920;
-	public static final int HEIGHT = 1080;
+	private static final String OUT_PATH = "out";
+	private static final int WIDTH = 1920;
+	private static final int HEIGHT = 1080;
 	private static final Yaml yaml;
 
+	// set up YAML
 	static {
 		final DumperOptions options = new DumperOptions();
 		options.setIndent(2);
@@ -49,6 +52,12 @@ public class Main {
 		return outDir;
 	}
 
+	/**
+	 * Gets the current working directory, which is actually the parent directory of this jar
+	 * as this jar is located in folder/bin
+	 *
+	 * @return the current working directory
+	 */
 	public static File getCwd() {
 		return new File(new File(
 				Main.class
@@ -59,6 +68,14 @@ public class Main {
 		).getParentFile().getParent());
 	}
 
+	/**
+	 * Reads data from the files with the given file path
+	 *
+	 * @param filesPath the file path
+	 * @param map       the map to write the data to
+	 * @return the data
+	 * @throws FileNotFoundException if the file path is invalid
+	 */
 	public static Map<String, ?> readFiles(final String filesPath, final Map<String, ?> map)
 			throws FileNotFoundException {
 		final File dir = new File(filesPath);
@@ -99,6 +116,13 @@ public class Main {
 		return yaml;
 	}
 
+	/**
+	 * Dumps a chart into a file in .svg format
+	 *
+	 * @param fileName the file name
+	 * @param chart    the chart
+	 * @throws IOException if the chart could not be exported
+	 */
 	public static void dumpChart(String fileName, JFreeChart chart) throws IOException {
 		XYLineAndShapeRenderer renderer = (XYLineAndShapeRenderer) chart.getXYPlot().getRenderer();
 		renderer.setDefaultItemLabelsVisible(true);
