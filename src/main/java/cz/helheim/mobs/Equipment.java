@@ -11,7 +11,7 @@ import java.util.regex.Pattern;
  * @since 1.0
  */
 public class Equipment {
-	public static final Pattern EQUIPMENT_PATTERN = Pattern.compile("([\\w]+)(:\\d+)?");
+	public static final Pattern EQUIPMENT_PATTERN = Pattern.compile("([\\w]+):\\d+");
 	private String id;
 	private int itemId;
 	private double weight;
