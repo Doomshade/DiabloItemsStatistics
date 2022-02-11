@@ -35,12 +35,19 @@ public class MobStatistics {
 	private static final Logger L = LogManager.getLogger(MobStatistics.class);
 
 	public static void parseMobs() throws IOException {
+		// get weights from config
 		final Map<String, Double> weights = Main.readFile(getConfig(), new LinkedHashMap<>());
+
+		// parse and sort mobs by level
 		final List<Mob> mobs = parseMobFiles(parseItemFiles(weights));
 		mobs.sort(Mob::compareTo);
+
+		// dump it to a map
 		final Map<String, Mob> dumpMap = new LinkedHashMap<>();
 		for (Mob m : mobs) {
 			for (final Equipment eq : m.getEquipment()) {
+				// if the weight does not exist, add it to the map with weight of 1
+				// the new weight will later be written to the config file
 				weights.putIfAbsent(String.valueOf(eq.getItemId()), 1d);
 				for (final Enchantment ench : eq.getEnchantments()) {
 					weights.putIfAbsent(ench.getEnchantmentId(), 1d);
@@ -48,36 +55,62 @@ public class MobStatistics {
 			}
 			dumpMap.put(m.getMobId(), m);
 		}
+
+		// write the new weights to the config
 		addToConfig(getConfig(), weights);
 
+		// dump the mobs to a file
 		Main.getYaml().dump(dumpMap, new FileWriter(new File(Main.getOutDir(),
 				"mobs-" + System.currentTimeMillis() + ".yml"), StandardCharsets.UTF_8));
+
+		// create a chart out of the file
 		createChart("mobs.svg", dumpMap);
 	}
 
+	/**
+	 * Dumps the weight map to a config file
+	 *
+	 * @param f   the config file
+	 * @param map the weight map
+	 * @throws IOException if the file is invalid
+	 */
 	private static void addToConfig(File f, Map<String, Double> map) throws IOException {
 		try (FileWriter fw = new FileWriter(f, StandardCharsets.UTF_8)) {
 			Main.getYaml().dump(map, fw);
 		}
 	}
 
+	/**
+	 * Parses items and associates the weights with them based on the given map
+	 *
+	 * @param weights the weight map
+	 * @return a map of key=equipmentId, value=equipment
+	 * @throws FileNotFoundException if a file could not be read
+	 */
 	private static Map<String, Equipment> parseItemFiles(
 			final Map<String, Double> weights) throws FileNotFoundException {
 		final Map<String, Equipment> equipment = new HashMap<>();
+
+		// get all files in the directory
 		File[] itemFiles = getItemsFolder().listFiles(x -> x.getName().endsWith(".yml"));
 		if (itemFiles == null) {
 			return equipment;
 		}
+
+		// read all files in that directory
 		for (File itemFile : itemFiles) {
-			Map<String, ?> map = Main.readFile(itemFile);
+			// key = itemId, value = map of key-value pairs (metadata)
+			final Map<String, ?> map = Main.readFile(itemFile);
 			for (Map.Entry<String, ?> entry : map.entrySet()) {
 				Map<String, ?> subMap = (Map<String, ?>) entry.getValue();
+
+				// item id
 				final Object id = subMap.get("Id");
-				final Object enchantments = subMap.get("Enchantments");
 				if (!(id instanceof Integer)) {
 					continue;
 				}
-				Collection<Enchantment> enchs = new ArrayList<>();
+				final Object enchantments = subMap.get("Enchantments");
+				final Collection<Enchantment> enchs = new ArrayList<>();
 				if (enchantments instanceof List) {
 					for (String s : (List<String>) enchantments) {
 						Matcher m = Enchantment.ENCHANTMENT_PATTERN.matcher(s);
@@ -127,7 +160,7 @@ public class MobStatistics {
 
 						final String eqId = m.group(1);
 						if (!equipment.containsKey(eqId)) {
-							L.debug("Could not find an item for equipment ID " + eqId);
+							L.debug(String.format("Could not find an item for equipment ID %s for mob %s", eqId, entry.getKey()));
 							continue;
 						}
 						eq.add(equipment.get(eqId));
@@ -162,6 +195,10 @@ public class MobStatistics {
 	}
 
 	private static void createChart(final String fileName, final Map<String, Mob> rankedMobs) throws IOException {
+		if (rankedMobs.isEmpty()) {
+			L.info("No mobs loaded, cannot create mob charts");
+			return;
+		}
 		XYSeriesCollection ds = new XYSeriesCollection();
 		Map<Integer, Number> vals = new HashMap<>();
 		Map<Integer, Integer> mobsPerLvl = new HashMap<>();
@@ -172,7 +209,7 @@ public class MobStatistics {
 			if (mob.getLvl() <= 0 || mob.getLvl() > 60) {
 				continue;
 			}
-			vals.put(mob.getLvl(), vals.getOrDefault(mob.getLvl(), 0d).doubleValue() + mob.calculateWeight());
+			vals.put(mob.getLvl(), vals.getOrDefault(mob.getLvl(), 0d).doubleValue() + mob.getWeight());
 			mobsPerLvl.put(mob.getLvl(), mobsPerLvl.getOrDefault(mob.getLvl(), 0) + 1);
 		}
 		for (Map.Entry<Integer, Number> entry : vals.entrySet()) {

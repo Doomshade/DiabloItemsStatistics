@@ -12,10 +12,11 @@ import org.jfree.data.xy.XYSeries;
 import org.jfree.data.xy.XYSeriesCollection;
 import org.jfree.svg.SVGGraphics2D;
 import org.jfree.svg.SVGUtils;
-import org.yaml.snakeyaml.Yaml;
 
 import java.awt.*;
-import java.io.*;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.*;
@@ -118,6 +119,10 @@ public class ItemStatistics {
 
 	private static void createChart(final String fileName, final Map<String, Map<String, Item>> itemRanked)
 			throws IOException {
+		if (itemRanked.isEmpty()) {
+			L.info("No items loaded, cannot create item charts");
+			return;
+		}
 		XYSeriesCollection ds = new XYSeriesCollection();
 
 		for (Map.Entry<String, Map<String, Item>> e : itemRanked.entrySet()) {
@@ -153,6 +158,10 @@ public class ItemStatistics {
 			ds.addSeries(series);
 		}
 
+		if (ds.getSeriesCount() < 1) {
+			L.info("No items loaded, cannot create item charts");
+			return;
+		}
 		final XYSeries avgSeries = ds.getSeries(1);
 
 		final XYSeries powRegression = new XYSeries("avg%");

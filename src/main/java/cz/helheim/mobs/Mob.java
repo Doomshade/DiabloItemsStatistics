@@ -18,10 +18,12 @@ public class Mob implements Comparable<Mob> {
 	private int health;
 	private int damage;
 	private int lvl;
+	private double weight;
 	private Collection<Equipment> equipment = new ArrayList<>();
 
 	public Mob(final String mobId, final String mobName, final int health, final int damage,
 	           final Collection<Equipment> equipment) {
+		this.weight = 0;
 		this.mobId = mobId;
 		this.mobName = mobName;
 		this.health = health;
@@ -100,16 +102,20 @@ public class Mob implements Comparable<Mob> {
 		return Integer.compare(lvl, o.lvl);
 	}
 
-	public double calculateWeight() {
-		double weight = 0;
+	public double getWeight() {
+		this.weight = 0;
 		for (Equipment eq : equipment) {
 			weight += eq.getWeight();
 			for (Enchantment ench : eq.getEnchantments()) {
-				weight += ench.getWeight();
+				weight += ench.getWeight() * ench.getLevel();
 			}
 		}
 		weight += health;
 		weight += damage;
 		return weight;
+	}
+
+	public void setWeight(double weight) {
+		this.weight = weight;
 	}
 }
